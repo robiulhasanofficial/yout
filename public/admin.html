@@ -259,13 +259,31 @@
       font-weight: 600;
       cursor: pointer;
     }
+
+    .toast {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: #1f2937;
+      color: white;
+      padding: 14px 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+      z-index: 5000;
+      animation: toastSlide 0.4s ease;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .toast.error { background: var(--danger); }
+    @keyframes toastSlide { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
   </style>
 </head>
 <body>
 
   <div class="admin-container">
     <div class="admin-header">
-      <h1><i class="fas fa-cog"></i> অ্যাডমিন প্যানেল</h1>
+      <h1>অ্যাডমিন প্যানেল</h1>
       <p>সব অর্ডার, ইউজার ও কার্ড ম্যানেজ করুন</p>
     </div>
 
@@ -313,7 +331,7 @@
     <div id="cards" class="tab-content">
       <h2>কার্ড ম্যানেজমেন্ট</h2>
       <button onclick="openAddCardModal()" style="margin-bottom:16px;" class="btn btn-success">
-        <i class="fas fa-plus"></i> নতুন কার্ড যোগ করুন
+        নতুন কার্ড যোগ করুন
       </button>
       <table id="cards-table">
         <thead>
@@ -349,7 +367,7 @@
       </div>
       <div class="modal-body">
         <form id="card-edit-form">
-          <input type="hidden" id="edit-card-index" />
+          <input type="hidden" id="edit-card-id-hidden" />
           <div class="form-group">
             <label>কার্ড আইডি</label>
             <input type="text" id="edit-card-id" required />
@@ -404,10 +422,16 @@
   </div>
 
   <script>
-    // ডাটা লোড
-    let orders = JSON.parse(localStorage.getItem('orders')) || [];
-    let cardDatabase = JSON.parse(localStorage.getItem('cardDatabase')) || [];
-    let users = JSON.parse(localStorage.getItem('users')) || [];
+    const API_BASE = '/api/admin';
+
+    // Helper: Toast
+    function showToast(msg, type = 'success') {
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      toast.innerHTML = `<i class="fas fa-${type === 'error' ? 'exclamation-triangle' : 'check-circle'}"></i> ${msg}`;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    }
 
     // ট্যাব সুইচ
     document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -416,195 +440,267 @@
         document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
         btn.classList.add('active');
         document.getElementById(btn.dataset.tab).classList.add('active');
-        if (btn.dataset.tab === 'orders') renderOrders();
-        if (btn.dataset.tab === 'users') renderUsers();
-        if (btn.dataset.tab === 'cards') renderCards();
+        if (btn.dataset.tab === 'orders') loadOrders();
+        if (btn.dataset.tab === 'users') loadUsers();
+        if (btn.dataset.tab === 'cards') loadCards();
       });
     });
 
-    // অর্ডার রেন্ডার
-    function renderOrders() {
+    // অর্ডার লোড
+    async function loadOrders() {
+      try {
+        const res = await fetch(`${API_BASE}/orders`, { credentials: 'include' });
+        const orders = await res.json();
+        renderOrders(orders);
+      } catch (err) {
+        showToast('অর্ডার লোড করতে সমস্যা!', 'error');
+      }
+    }
+
+    function renderOrders(orders) {
       const tbody = document.querySelector('#orders-table tbody');
       tbody.innerHTML = '';
-      if (orders.length === 0) {
+      if (!orders || orders.length === 0) {
         tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--gray);padding:40px;">কোনো অর্ডার নেই</td></tr>';
         return;
       }
       orders.forEach(order => {
-        const tr = document.createElement('tr');
         const status = order.status || 'pending';
+        const tr = document.createElement('tr');
         tr.innerHTML = `
-          <td>#${order.id}</td>
+          <td>#${order.orderId}</td>
           <td>${order.name}</td>
           <td>${order.phone}</td>
           <td>৳${order.total}</td>
-          <td>${order.date}</td>
+          <td>${new Date(order.createdAt).toLocaleString('bn-BD')}</td>
           <td><span class="status ${status}">${status === 'pending' ? 'পেন্ডিং' : status === 'delivered' ? 'ডেলিভার্ড' : 'ক্যানসেলড'}</span></td>
           <td>
-            <button class="btn btn-success" onclick="updateStatus('${order.id}', 'delivered')" ${status === 'delivered' ? 'disabled' : ''}>ডেলিভার্ড</button>
-            <button class="btn btn-danger" onclick="updateStatus('${order.id}', 'cancelled')" ${status === 'cancelled' ? 'disabled' : ''}>ক্যানসেল</button>
-            <button class="btn btn-warning" onclick="viewOrder('${order.id}')">বিস্তারিত</button>
+            <button class="btn btn-success" onclick="updateStatus('${order.orderId}', 'delivered')" ${status === 'delivered' ? 'disabled' : ''}>ডেলিভার্ড</button>
+            <button class="btn btn-danger" onclick="updateStatus('${order.orderId}', 'cancelled')" ${status === 'cancelled' ? 'disabled' : ''}>ক্যানসেল</button>
+            <button class="btn btn-warning" onclick="viewOrder('${order.orderId}')">বিস্তারিত</button>
           </td>
         `;
         tbody.appendChild(tr);
       });
     }
 
-    // স্ট্যাটাস আপডেট
-    window.updateStatus = (id, status) => {
-      const order = orders.find(o => o.id === id);
-      if (!order) return;
-      order.status = status;
-      localStorage.setItem('orders', JSON.stringify(orders));
-      renderOrders();
-      alert(`অর্ডার #${id} এখন ${status === 'delivered' ? 'ডেলিভার্ড' : 'ক্যানসেলড'}!`);
+    window.updateStatus = async (orderId, status) => {
+      try {
+        const res = await fetch(`${API_BASE}/orders/${orderId}/status`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status }),
+          credentials: 'include'
+        });
+        if (res.ok) {
+          showToast(`অর্ডার #${orderId} ${status === 'delivered' ? 'ডেলিভার্ড' : 'ক্যানসেলড'}!`);
+          loadOrders();
+        } else {
+          const err = await res.json();
+          showToast(err.message || 'আপডেট ব্যর্থ!', 'error');
+        }
+      } catch (err) {
+        showToast('ইন্টারনেট সমস্যা!', 'error');
+      }
     };
 
-    // অর্ডার বিস্তারিত
-    window.viewOrder = (id) => {
-      const order = orders.find(o => o.id === id);
-      if (!order) return;
-      const body = document.getElementById('order-detail-body');
-      body.innerHTML = `
-        <div class="order-details">
-          <h4>গ্রাহক তথ্য</h4>
-          <p><strong>নাম:</strong> ${order.name}</p>
-          <p><strong>মোবাইল:</strong> ${order.phone}</p>
-          ${order.email ? `<p><strong>ইমেইল:</strong> ${order.email}</p>` : ''}
-          <p><strong>ঠিকানা:</strong> ${order.address}</p>
-          <p><strong>এলাকা:</strong> ${order.area}</p>
-        </div>
-        <div class="order-details">
-          <h4>পেমেন্ট</h4>
-          <p><strong>কার্ড আইডি:</strong> ${order.cardId}</p>
-          <p><strong>মোট পরিশোধ:</strong> ৳${order.total}</p>
-        </div>
-        <div class="order-details">
-          <h4>অর্ডার আইটেম</h4>
-          <ul class="order-items">
-            ${order.items.map(i => `<li>${i.title} × ${i.quantity} = ৳${i.price * i.quantity}</li>`).join('')}
-          </ul>
-          <p style="margin-top:12px;"><strong>সাবটোটাল:</strong> ৳${order.subtotal}</p>
-          <p><strong>ডেলিভারি:</strong> ৳${order.shipping}</p>
-          <p><strong>মোট:</strong> ৳${order.total}</p>
-        </div>
-      `;
-      document.getElementById('order-detail-modal').classList.add('open');
+    window.viewOrder = async (orderId) => {
+      try {
+        const res = await fetch(`${API_BASE}/orders/${orderId}`, { credentials: 'include' });
+        const order = await res.json();
+        const body = document.getElementById('order-detail-body');
+        body.innerHTML = `
+          <div class="order-details">
+            <h4>গ্রাহক তথ্য</h4>
+            <p><strong>নাম:</strong> ${order.name}</p>
+            <p><strong>মোবাইল:</strong> ${order.phone}</p>
+            ${order.email ? `<p><strong>ইমেইল:</strong> ${order.email}</p>` : ''}
+            <p><strong>ঠিকানা:</strong> ${order.address}</p>
+            <p><strong>এলাকা:</strong> ${order.area === 'dhaka' ? 'ঢাকার ভিতরে' : 'ঢাকার বাইরে'}</p>
+          </div>
+          <div class="order-details">
+            <h4>পেমেন্ট</h4>
+            <p><strong>কার্ড আইডি:</strong> ${order.cardId}</p>
+            <p><strong>মোট পরিশোধ:</strong> ৳${order.total}</p>
+          </div>
+          <div class="order-details">
+            <h4>অর্ডার আইটেম</h4>
+            <ul class="order-items">
+              ${order.items.map(i => `<li>${i.title} × ${i.quantity} = ৳${i.price * i.quantity}</li>`).join('')}
+            </ul>
+            <p style="margin-top:12px;"><strong>সাবটোটাল:</strong> ৳${order.subtotal}</p>
+            <p><strong>ডেলিভারি:</strong> ৳${order.shipping}</p>
+            <p><strong>মোট:</strong> ৳${order.total}</p>
+          </div>
+        `;
+        document.getElementById('order-detail-modal').classList.add('open');
+      } catch (err) {
+        showToast('অর্ডার লোড করতে সমস্যা!', 'error');
+      }
     };
 
-    // ইউজার রেন্ডার
-    function renderUsers() {
+    // ইউজার লোড
+    async function loadUsers() {
+      try {
+        const res = await fetch(`${API_BASE}/users`, { credentials: 'include' });
+        const users = await res.json();
+        renderUsers(users);
+      } catch (err) {
+        showToast('ইউজার লোড করতে সমস্যা!', 'error');
+      }
+    }
+
+    function renderUsers(users) {
       const tbody = document.querySelector('#users-table tbody');
       tbody.innerHTML = '';
-      if (users.length === 0) {
+      if (!users || users.length === 0) {
         tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--gray);padding:40px;">কোনো ইউজার নেই</td></tr>';
         return;
       }
       users.forEach(user => {
-        const userOrders = orders.filter(o => o.phone === user.phone);
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td><span class="user-name" onclick="showUserOrders('${user.phone}')">${user.name}</span></td>
           <td>${user.phone}</td>
-          <td>${userOrders.length}</td>
+          <td>${user.orderCount || 0}</td>
         `;
         tbody.appendChild(tr);
       });
     }
 
-    // ইউজারের অর্ডার দেখানো
-    window.showUserOrders = (phone) => {
-      const userOrders = orders.filter(o => o.phone === phone);
-      const user = users.find(u => u.phone === phone);
-      if (userOrders.length === 0) {
-        alert(`${user.name} এর কোনো অর্ডার নেই।`);
-        return;
+    window.showUserOrders = async (phone) => {
+      try {
+        const res = await fetch(`${API_BASE}/orders/user/${phone}`, { credentials: 'include' });
+        const orders = await res.json();
+        if (orders.length === 0) {
+          alert(`এই ইউজারের কোনো অর্ডার নেই।`);
+          return;
+        }
+        let msg = `অর্ডারসমূহ:\n\n`;
+        orders.forEach(o => {
+          msg += `#${o.orderId} - ৳${o.total} [${o.status || 'pending'}]\n`;
+        });
+        alert(msg);
+      } catch (err) {
+        showToast('অর্ডার লোড করতে সমস্যা!', 'error');
       }
-      let msg = `${user.name} এর অর্ডারসমূহ:\n\n`;
-      userOrders.forEach(o => {
-        msg += `#${o.id} - ৳${o.total} [${o.status || 'pending'}]\n`;
-      });
-      alert(msg);
     };
 
-    // কার্ড রেন্ডার
-    function renderCards() {
+    // কার্ড লোড
+    async function loadCards() {
+      try {
+        const res = await fetch(`${API_BASE}/cards`, { credentials: 'include' });
+        const cards = await res.json();
+        renderCards(cards);
+      } catch (err) {
+        showToast('কার্ড লোড করতে সমস্যা!', 'error');
+      }
+    }
+
+    function renderCards(cards) {
       const tbody = document.querySelector('#cards-table tbody');
       tbody.innerHTML = '';
-      if (cardDatabase.length === 0) {
+      if (!cards || cards.length === 0) {
         tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--gray);padding:40px;">কোনো কার্ড নেই</td></tr>';
         return;
       }
-      cardDatabase.forEach((card, index) => {
+      cards.forEach(card => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td>${card.id}</td>
           <td>${card.name}</td>
           <td>৳${card.balance}</td>
           <td>
-            <button class="btn btn-warning" onclick="editCard(${index})">এডিট</button>
+            <button class="btn btn-warning" onclick="editCard('${card.id}')">এডিট</button>
           </td>
         `;
         tbody.appendChild(tr);
       });
     }
 
-    // কার্ড এডিট
-    window.editCard = (index) => {
-      const card = cardDatabase[index];
-      document.getElementById('edit-card-index').value = index;
-      document.getElementById('edit-card-id').value = card.id;
-      document.getElementById('edit-card-password').value = card.password;
-      document.getElementById('edit-card-name').value = card.name;
-      document.getElementById('edit-card-balance').value = card.balance;
-      document.getElementById('card-edit-modal').classList.add('open');
+    window.editCard = async (cardId) => {
+      try {
+        const res = await fetch(`${API_BASE}/cards/${cardId}`, { credentials: 'include' });
+        const card = await res.json();
+        document.getElementById('edit-card-id-hidden').value = card.id;
+        document.getElementById('edit-card-id').value = card.id;
+        document.getElementById('edit-card-password').value = card.password;
+        document.getElementById('edit-card-name').value = card.name;
+        document.getElementById('edit-card-balance').value = card.balance;
+        document.getElementById('card-edit-modal').classList.add('open');
+      } catch (err) {
+        showToast('কার্ড লোড করতে সমস্যা!', 'error');
+      }
     };
 
-    // কার্ড এডিট ফর্ম
-    document.getElementById('card-edit-form').onsubmit = (e) => {
+    document.getElementById('card-edit-form').onsubmit = async (e) => {
       e.preventDefault();
-      const index = document.getElementById('edit-card-index').value;
-      cardDatabase[index] = {
+      const cardId = document.getElementById('edit-card-id-hidden').value;
+      const payload = {
         id: document.getElementById('edit-card-id').value,
         password: document.getElementById('edit-card-password').value,
         name: document.getElementById('edit-card-name').value,
         balance: parseInt(document.getElementById('edit-card-balance').value)
       };
-      localStorage.setItem('cardDatabase', JSON.stringify(cardDatabase));
-      closeModal('card-edit-modal');
-      renderCards();
-      alert('কার্ড আপডেট হয়েছে!');
+      try {
+        const res = await fetch(`${API_BASE}/cards/${cardId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          credentials: 'include'
+        });
+        if (res.ok) {
+          closeModal('card-edit-modal');
+          loadCards();
+          showToast('কার্ড আপডেট হয়েছে!');
+        } else {
+          const err = await res.json();
+          showToast(err.message || 'আপডেট ব্যর্থ!', 'error');
+        }
+      } catch (err) {
+        showToast('ইন্টারনেট সমস্যা!', 'error');
+      }
     };
 
-    // নতুন কার্ড মডাল
     window.openAddCardModal = () => {
       document.getElementById('add-card-modal').classList.add('open');
     };
 
-    // নতুন কার্ড ফর্ম
-    document.getElementById('add-card-form').onsubmit = (e) => {
+    document.getElementById('add-card-form').onsubmit = async (e) => {
       e.preventDefault();
-      const newCard = {
+      const payload = {
         id: document.getElementById('new-card-id').value,
         password: document.getElementById('new-card-password').value,
         name: document.getElementById('new-card-name').value,
         balance: parseInt(document.getElementById('new-card-balance').value)
       };
-      cardDatabase.push(newCard);
-      localStorage.setItem('cardDatabase', JSON.stringify(cardDatabase));
-      closeModal('add-card-modal');
-      document.getElementById('add-card-form').reset();
-      renderCards();
-      alert('নতুন কার্ড যোগ হয়েছে!');
+      try {
+        const res = await fetch(`${API_BASE}/cards`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          credentials: 'include'
+        });
+        if (res.ok) {
+          closeModal('add-card-modal');
+          document.getElementById('add-card-form').reset();
+          loadCards();
+          showToast('নতুন কার্ড যোগ হয়েছে!');
+        } else {
+          const err = await res.json();
+          showToast(err.message || 'যোগ করতে ব্যর্থ!', 'error');
+        }
+      } catch (err) {
+        showToast('ইন্টারনেট সমস্যা!', 'error');
+      }
     };
 
-    // মডাল বন্ধ
     window.closeModal = (id) => {
       document.getElementById(id).classList.remove('open');
     };
 
     // শুরুতে লোড
-    renderOrders();
+    loadOrders();
   </script>
 </body>
 </html>

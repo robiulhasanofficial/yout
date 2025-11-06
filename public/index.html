@@ -242,7 +242,7 @@
           </div>
           <button type="submit" class="submit-btn">চেক করুন</button>
         </form>
-        <button type="button" class="test-btn" onclick="testTelegram()">টেলিগ্রাম টেস্ট করুন</button>
+        <button type="button" class="test-btn" id="test-telegram-btn">টেলিগ্রাম টেস্ট করুন</button>
         <div id="modal-balance-result" class="balance-result"></div>
       </div>
     </div>
@@ -401,472 +401,430 @@
   </div>
 
   <script>
-  // === ডাটা ===
-  const books = [
-    { id: 1, title: "ছোটদের গল্পের ভুবন", price: 1, category: "story", rating: 4.5, img: "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&h=400&q=80" },
-    { id: 2, title: "বিজ্ঞানের জাদু", price: 220, category: "science", rating: 4.8, img: "https://images.unsplash.com/photo-1532012197267-da84d127e765?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&h=400&q=80" },
-    { id: 3, title: "ইতিহাসের পাতা থেকে", price: 180, category: "history", rating: 4.2, img: "https://images.unsplash.com/photo-1457369804613-52c61a468e7d?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&h=400&q=80" },
-  ];
+    const API_BASE = '/api';
 
-  let cart = JSON.parse(localStorage.getItem('cart')) || [];
-  let orders = JSON.parse(localStorage.getItem('orders')) || [];
-  let orderCount = parseInt(localStorage.getItem('orderCount') || '1000');
-  let users = JSON.parse(localStorage.getItem('users')) || [];
-  let currentUser = JSON.parse(localStorage.getItem('currentUser')) || null;
+    // === ডাটা ===
+    let books = [];
+    let cart = [];
+    let currentUser = null;
 
-  // === কার্ড ডাটাবেস ===
-  let cardDatabase = JSON.parse(localStorage.getItem('cardDatabase')) || [
-    { id: "552hh", password: "5252", name: "জাহিদ", balance: 1000 }
-  ];
+    // === DOM Elements ===
+    const productsGrid = document.getElementById('products-grid');
+    const cartSidebar = document.getElementById('cart-sidebar');
+    const cartToggle = document.getElementById('cart-toggle');
+    const closeCart = document.getElementById('close-cart');
+    const cartBody = document.getElementById('cart-body');
+    const cartTotal = document.getElementById('cart-total');
+    const cartCount = document.getElementById('cart-count');
+    const proceedCheckout = document.getElementById('proceed-checkout');
+    const checkoutModal = document.getElementById('checkout-modal');
+    const confirmationModal = document.getElementById('confirmation-modal');
+    const finalOrderId = document.getElementById('final-order-id');
+    const categoryFilter = document.getElementById('category-filter');
+    const priceRange = document.getElementById('price-range');
+    const priceValue = document.getElementById('price-value');
+    const searchInput = document.getElementById('search-input');
+    const mobileMenuToggle = document.getElementById('mobile-menu-toggle');
+    const navLinks = document.getElementById('nav-links');
 
-  // === Telegram Config ===
-  const TELEGRAM_BOT_TOKEN = "8569431445:AAGbR45giHRZqudYwJPUJSDZvl5y3E8VVIs";
-  const TELEGRAM_CHAT_ID = "7222038538";
+    // Card Check
+    const cardCheckLink = document.getElementById('card-check-link');
+    const cardCheckModal = document.getElementById('card-check-modal');
+    const closeCardModal = document.getElementById('close-card-modal');
+    const cardCheckForm = document.getElementById('card-check-form');
+    const modalCardId = document.getElementById('modal-card-id');
+    const modalCardPassword = document.getElementById('modal-card-password');
+    const modalBalanceResult = document.getElementById('modal-balance-result');
 
-  // === DOM Elements ===
-  const productsGrid = document.getElementById('products-grid');
-  const cartSidebar = document.getElementById('cart-sidebar');
-  const cartToggle = document.getElementById('cart-toggle');
-  const closeCart = document.getElementById('close-cart');
-  const cartBody = document.getElementById('cart-body');
-  const cartTotal = document.getElementById('cart-total');
-  const cartCount = document.getElementById('cart-count');
-  const proceedCheckout = document.getElementById('proceed-checkout');
-  const checkoutModal = document.getElementById('checkout-modal');
-  const confirmationModal = document.getElementById('confirmation-modal');
-  const finalOrderId = document.getElementById('final-order-id');
-  const categoryFilter = document.getElementById('category-filter');
-  const priceRange = document.getElementById('price-range');
-  const priceValue = document.getElementById('price-value');
-  const searchInput = document.getElementById('search-input');
-  const mobileMenuToggle = document.getElementById('mobile-menu-toggle');
-  const navLinks = document.getElementById('nav-links');
+    // Order List
+    const orderListLink = document.getElementById('order-list-link');
+    const orderListModal = document.getElementById('order-list-modal');
+    const closeOrderList = document.getElementById('close-order-list');
+    const orderListBody = document.getElementById('order-list-body');
 
-  // Card Check
-  const cardCheckLink = document.getElementById('card-check-link');
-  const cardCheckModal = document.getElementById('card-check-modal');
-  const closeCardModal = document.getElementById('close-card-modal');
-  const cardCheckForm = document.getElementById('card-check-form');
-  const modalCardId = document.getElementById('modal-card-id');
-  const modalCardPassword = document.getElementById('modal-card-password');
-  const modalBalanceResult = document.getElementById('modal-balance-result');
+    // Checkout
+    const checkoutForm = document.getElementById('checkout-form');
+    const checkoutCardId = document.getElementById('checkout-card-id');
+    const checkoutCardPassword = document.getElementById('checkout-card-password');
+    const areaSelect = document.getElementById('area-select');
+    const summarySubtotal = document.getElementById('summary-subtotal');
+    const summaryShipping = document.getElementById('summary-shipping');
+    const summaryTotal = document.getElementById('summary-total');
 
-  // Order List
-  const orderListLink = document.getElementById('order-list-link');
-  const orderListModal = document.getElementById('order-list-modal');
-  const closeOrderList = document.getElementById('close-order-list');
-  const orderListBody = document.getElementById('order-list-body');
+    // User Registration
+    const userRegisterModal = document.getElementById('user-register-modal');
+    const userRegisterForm = document.getElementById('user-register-form');
+    const userNameInput = document.getElementById('user-name');
+    const userPhoneInput = document.getElementById('user-phone');
+    const userDisplay = document.getElementById('user-display');
 
-  // Checkout
-  const checkoutForm = document.getElementById('checkout-form');
-  const checkoutCardId = document.getElementById('checkout-card-id');
-  const checkoutCardPassword = document.getElementById('checkout-card-password');
-  const areaSelect = document.getElementById('area-select');
-  const summarySubtotal = document.getElementById('summary-subtotal');
-  const summaryShipping = document.getElementById('summary-shipping');
-  const summaryTotal = document.getElementById('summary-total');
+    // Telegram Test
+    const testTelegramBtn = document.getElementById('test-telegram-btn');
 
-  // User Registration
-  const userRegisterModal = document.getElementById('user-register-modal');
-  const userRegisterForm = document.getElementById('user-register-form');
-  const userNameInput = document.getElementById('user-name');
-  const userPhoneInput = document.getElementById('user-phone');
-  const userDisplay = document.getElementById('user-display');
-
-  // === ইউজার রেজিস্ট্রেশন ===
-  if (!currentUser) {
-    userRegisterModal.classList.add('open');
-  } else {
-    userDisplay.textContent = `${currentUser.name} (${currentUser.phone})`;
-    userDisplay.style.display = 'inline';
-  }
-
-  userRegisterForm.onsubmit = (e) => {
-    e.preventDefault();
-    const name = userNameInput.value.trim();
-    const phone = userPhoneInput.value.trim();
-
-    if (!name || !phone) return showToast('সব তথ্য পূরণ করুন!', 'error');
-
-    currentUser = { name, phone };
-    users.push(currentUser);
-    localStorage.setItem('currentUser', JSON.stringify(currentUser));
-    localStorage.setItem('users', JSON.stringify(users));
-
-    userDisplay.textContent = `${name} (${phone})`;
-    userDisplay.style.display = 'inline';
-    userRegisterModal.classList.remove('open');
-    showToast('স্বাগতম!', 'success');
-  };
-
-  // === Mobile Menu ===
-  mobileMenuToggle.addEventListener('click', () => navLinks.classList.toggle('mobile-open'));
-  document.addEventListener('click', (e) => {
-    if (!navLinks.contains(e.target) && !mobileMenuToggle.contains(e.target)) {
-      navLinks.classList.remove('mobile-open');
-    }
-  });
-
-  // === Render Products ===
-  function renderProducts(filteredBooks = books) {
-    productsGrid.innerHTML = '';
-    if (filteredBooks.length === 0) {
-      productsGrid.innerHTML = '<p style="grid-column:1/-1;text-align:center;color:var(--gray);padding:40px;">কোনো বই পাওয়া যায়নি</p>';
-      return;
-    }
-    filteredBooks.forEach(book => {
-      const div = document.createElement('div');
-      div.className = 'product-card';
-      div.innerHTML = `
-        <div class="product-img">
-          <img src="${book.img}" alt="${book.title}" onerror="this.src='https://via.placeholder.com/300x400?text=বই'" />
-        </div>
-        <div class="product-info">
-          <h3>${book.title}</h3>
-          <div class="rating">
-            ${'★'.repeat(Math.floor(book.rating))}${'☆'.repeat(5 - Math.floor(book.rating))} <span>${book.rating}</span>
-          </div>
-          <p class="price">৳${book.price}</p>
-          <div class="quantity">
-            <button onclick="changeQty(${book.id}, -1)">−</button>
-            <span id="qty-${book.id}">0</span>
-            <button onclick="changeQty(${book.id}, 1)">+</button>
-          </div>
-          <button class="add-to-cart" onclick="addToCart(${book.id})">কার্টে যোগ করুন</button>
-        </div>
-      `;
-      productsGrid.appendChild(div);
-    });
-  }
-
-  // === Filters ===
-  function applyFilters() {
-    const category = categoryFilter.value;
-    const maxPrice = parseInt(priceRange.value);
-    const query = searchInput.value.toLowerCase().trim();
-
-    const filtered = books.filter(book => {
-      const matchCategory = !category || book.category === category;
-      const matchPrice = book.price <= maxPrice;
-      const matchSearch = !query || book.title.toLowerCase().includes(query);
-      return matchCategory && matchPrice && matchSearch;
-    });
-    renderProducts(filtered);
-  }
-
-  categoryFilter.addEventListener('change', applyFilters);
-  priceRange.addEventListener('input', () => {
-    priceValue.textContent = priceRange.value;
-    applyFilters();
-  });
-  searchInput.addEventListener('input', applyFilters);
-
-  window.changeQty = (id, change) => {
-    const qtyEl = document.getElementById(`qty-${id}`);
-    let qty = parseInt(qtyEl.textContent) || 0;
-    qty = Math.max(0, qty + change);
-    qtyEl.textContent = qty;
-  };
-
-  window.addToCart = (id) => {
-    const qty = parseInt(document.getElementById(`qty-${id}`).textContent);
-    if (qty === 0) return showToast('পরিমাণ নির্বাচন করুন!', 'error');
-
-    const existing = cart.find(item => item.id === id);
-    if (existing) existing.quantity += qty;
-    else {
-      const book = books.find(b => b.id === id);
-      cart.push({ ...book, quantity: qty });
+    // === Helper: Toast ===
+    function showToast(msg, type = 'success') {
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      toast.innerHTML = `<i class="fas fa-${type === 'error' ? 'exclamation-triangle' : 'check-circle'}"></i> ${msg}`;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
     }
 
-    document.getElementById(`qty-${id}`).textContent = 0;
-    updateCart();
-    showToast('কার্টে যোগ হয়েছে!');
-  };
-
-  function updateCart() {
-    localStorage.setItem('cart', JSON.stringify(cart));
-    cartCount.textContent = cart.reduce((sum, item) => sum + item.quantity, 0);
-    renderCartItems();
-    calculateTotal();
-  }
-
-  function renderCartItems() {
-    if (cart.length === 0) {
-      cartBody.innerHTML = '<p style="text-align:center;color:var(--gray);padding:40px 20px;">কার্ট খালি</p>';
-      return;
-    }
-    cartBody.innerHTML = '';
-    cart.forEach(item => {
-      const div = document.createElement('div');
-      div.className = 'cart-item';
-      div.innerHTML = `
-        <img src="${item.img}" alt="${item.title}">
-        <div class="cart-item-info">
-          <h4>${item.title}</h4>
-          <p>৳${item.price} × ${item.quantity} = ৳${item.price * item.quantity}</p>
-        </div>
-        <button class="remove-item" onclick="removeFromCart(${item.id})">×</button>
-      `;
-      cartBody.appendChild(div);
-    });
-  }
-
-  window.removeFromCart = (id) => {
-    cart = cart.filter(item => item.id !== id);
-    updateCart();
-  };
-
-  function calculateTotal() {
-    const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    cartTotal.textContent = total;
-  }
-
-  function showToast(msg, type = 'success') {
-    const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
-    toast.innerHTML = `<i class="fas fa-${type === 'error' ? 'exclamation-triangle' : 'check-circle'}"></i> ${msg}`;
-    document.body.appendChild(toast);
-    setTimeout(() => toast.remove(), 3000);
-  }
-
-  // Cart Events
-  cartToggle.onclick = () => cartSidebar.classList.add('open');
-  closeCart.onclick = () => cartSidebar.classList.remove('open');
-
-  proceedCheckout.onclick = () => {
-    if (cart.length === 0) return showToast('কার্ট খালি!', 'error');
-    if (!currentUser) return showToast('প্রথমে রেজিস্ট্রেশন করুন!', 'error');
-
-    document.getElementById('checkout-name').value = currentUser.name;
-    document.getElementById('checkout-phone').value = currentUser.phone;
-
-    cartSidebar.classList.remove('open');
-    checkoutModal.classList.add('open');
-    updateSummary();
-  };
-
-  document.querySelectorAll('.close-modal').forEach(btn => {
-    btn.onclick = () => {
-      checkoutModal.classList.remove('open');
-      confirmationModal.classList.remove('open');
-      cardCheckModal.classList.remove('open');
-      orderListModal.classList.remove('open');
-      userRegisterModal.classList.remove('open');
-    };
-  });
-
-  function updateSummary() {
-    const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const area = areaSelect.value;
-    const shipping = area === 'dhaka' ? 50 : area === 'outside' ? 100 : 0;
-
-    summarySubtotal.textContent = subtotal;
-    summaryShipping.textContent = shipping;
-    summaryTotal.textContent = subtotal + shipping;
-  }
-
-  areaSelect.addEventListener('change', updateSummary);
-
-  // === Card Check ===
-  cardCheckLink.onclick = () => cardCheckModal.classList.add('open');
-  closeCardModal.onclick = () => cardCheckModal.classList.remove('open');
-
-  cardCheckForm.onsubmit = (e) => {
-    e.preventDefault();
-    const id = modalCardId.value.trim();
-    const pass = modalCardPassword.value;
-
-    const card = cardDatabase.find(c => c.id === id && c.password === pass);
-    if (card) {
-      modalBalanceResult.className = 'balance-result success';
-      modalBalanceResult.innerHTML = `
-        <p><strong>নাম:</strong> ${card.name}</p>
-        <p style="font-size:1.3rem;margin-top:8px;"><strong>ব্যালেন্স:</strong> ৳${card.balance}</p>
-      `;
-      showToast('ব্যালেন্স চেক সফল!', 'success');
-    } else {
-      modalBalanceResult.className = 'balance-result error';
-      modalBalanceResult.innerHTML = `<p>আইডি বা পাসওয়ার্ড ভুল!</p>`;
-      showToast('ভুল তথ্য!', 'error');
-    }
-    modalBalanceResult.style.display = 'block';
-  };
-
-  // === Order List ===
-  orderListLink.onclick = () => {
-    renderOrders();
-    orderListModal.classList.add('open');
-  };
-
-  function renderOrders() {
-    if (orders.length === 0) {
-      orderListBody.innerHTML = '<p style="text-align:center;color:var(--gray);padding:20px;">কোনো অর্ডার নেই</p>';
-      return;
-    }
-    orderListBody.innerHTML = '';
-    const userOrders = currentUser ? orders.filter(o => o.phone === currentUser.phone) : [];
-    userOrders.forEach(order => {
-      const status = order.status || 'pending';
-      const isDelivered = status === 'delivered';
-      const isCancelled = status === 'cancelled';
-
-      const div = document.createElement('div');
-      div.className = `order-item ${isDelivered ? 'delivered' : isCancelled ? 'cancelled' : 'pending'}`;
-      div.innerHTML = `
-        <h3 style="color:${isDelivered ? '#059669' : isCancelled ? '#dc2626' : 'var(--primary)'}">
-          অর্ডার #${order.id} ${isDelivered ? 'Delivered' : isCancelled ? 'Cancelled' : ''}
-        </h3>
-        <p>তারিখ: ${order.date}</p>
-        <p>মোট: ৳${order.total}</p>
-        ${isDelivered ? '<p style="color:#059669; font-weight:600; margin-top:8px;">ডেলিভারি সফল হয়েছে</p>' : ''}
-        ${isCancelled ? '<p style="color:#dc2626; font-weight:600; margin-top:8px;">অর্ডার ক্যানসেল হয়েছে</p>' : ''}
-        <ul>${order.items.map(i => `<li>${i.title} × ${i.quantity} = ৳${i.price * i.quantity}</li>`).join('')}</ul>
-      `;
-      orderListBody.appendChild(div);
-    });
-  }
-
-  // === Telegram Send Function ===
-  async function sendToTelegram(message) {
-    const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
-    try {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: TELEGRAM_CHAT_ID,
-          text: message,
-          parse_mode: 'HTML',
-          disable_web_page_preview: true
-        })
-      });
-
-      const data = await res.json();
-      if (data.ok) return true;
-      else {
-        console.error('Telegram Error:', data);
-        showToast(`Telegram Error: ${data.description}`, 'error');
-        return false;
+    // === Load Books ===
+    async function loadBooks() {
+      try {
+        const res = await fetch(`${API_BASE}/books`);
+        books = await res.json();
+        renderProducts();
+      } catch (err) {
+        showToast('বই লোড করতে সমস্যা!', 'error');
       }
-    } catch (err) {
-      console.error('Network Error:', err);
-      showToast('ইন্টারনেট সমস্যা!', 'error');
-      return false;
-    }
-  }
-
-  window.testTelegram = async () => {
-    const success = await sendToTelegram('টেলিগ্রাম টেস্ট সফল!');
-    showToast(success ? 'টেস্ট সফল!' : 'টেস্ট ব্যর্থ!', success ? 'success' : 'error');
-  };
-
-  // === Order Submit ===
-  checkoutForm.onsubmit = async (e) => {
-    e.preventDefault();
-    if (cart.length === 0) return showToast('কার্ট খালি!', 'error');
-
-    const submitBtn = e.target.querySelector('.submit-order');
-    submitBtn.disabled = true;
-    document.getElementById('order-text').textContent = 'প্রসেসিং হচ্ছে...';
-    document.getElementById('order-loader').style.display = 'inline-block';
-
-    const name = document.getElementById('checkout-name').value.trim();
-    const phone = document.getElementById('checkout-phone').value.trim();
-    const email = e.target.querySelector('input[type="email"]').value.trim();
-    const address = e.target.querySelector('textarea').value.trim();
-    const areaText = areaSelect.options[areaSelect.selectedIndex].text;
-    const cardId = checkoutCardId.value.trim();
-    const cardPass = checkoutCardPassword.value;
-
-    const card = cardDatabase.find(c => c.id === cardId && c.password === cardPass);
-    if (!card) {
-      showToast('কার্ড আইডি বা পাসওয়ার্ড ভুল!', 'error');
-      resetSubmitBtn(submitBtn);
-      return;
     }
 
-    const subtotal = cart.reduce((s, i) => s + i.price * i.quantity, 0);
-    const shipping = areaSelect.value === 'dhaka' ? 50 : 100;
-    const total = subtotal + shipping;
-
-    if (card.balance < total) {
-      showToast('কার্ডে পর্যাপ্ত টাকা নেই!', 'error');
-      resetSubmitBtn(submitBtn);
-      return;
+    // === Load User ===
+    async function loadUser() {
+      try {
+        const res = await fetch(`${API_BASE}/user`, { credentials: 'include' });
+        if (res.ok) {
+          currentUser = await res.json();
+          userDisplay.textContent = `${currentUser.name} (${currentUser.phone})`;
+          userDisplay.style.display = 'inline';
+        } else {
+          userRegisterModal.classList.add('open');
+        }
+      } catch (err) {
+        userRegisterModal.classList.add('open');
+      }
     }
 
-    // ব্যালেন্স কাটা
-    card.balance -= total;
-    localStorage.setItem('cardDatabase', JSON.stringify(cardDatabase));
+    // === User Registration ===
+    userRegisterForm.onsubmit = async (e) => {
+      e.preventDefault();
+      const name = userNameInput.value.trim();
+      const phone = userPhoneInput.value.trim();
+      if (!name || !phone) return showToast('সব তথ্য পূরণ করুন!', 'error');
 
-    // অর্ডার আইডি
-    orderCount++;
-    localStorage.setItem('orderCount', orderCount);
-    const orderId = `ORD-${orderCount}`;
-
-    // অর্ডার সংরক্ষণ
-    const order = { 
-      id: orderId, 
-      date: new Date().toLocaleString('bn-BD'), 
-      items: [...cart], 
-      subtotal, 
-      shipping, 
-      total, 
-      name, 
-      phone, 
-      email, 
-      address, 
-      area: areaText, 
-      cardId,
-      status: 'pending'
+      try {
+        const res = await fetch(`${API_BASE}/user/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, phone }),
+          credentials: 'include'
+        });
+        if (res.ok) {
+          currentUser = await res.json();
+          userDisplay.textContent = `${name} (${phone})`;
+          userDisplay.style.display = 'inline';
+          userRegisterModal.classList.remove('open');
+          showToast('স্বাগতম!');
+        } else {
+          const err = await res.json();
+          showToast(err.message || 'রেজিস্ট্রেশন ব্যর্থ!', 'error');
+        }
+      } catch (err) {
+        showToast('ইন্টারনেট সমস্যা!', 'error');
+      }
     };
-    orders.push(order);
-    localStorage.setItem('orders', JSON.stringify(orders));
 
-    // টেলিগ্রাম মেসেজ
-    const orderTime = new Date().toLocaleString('bn-BD', { day: 'numeric', month: 'numeric', year: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric', hour12: true }).replace(',', '').replace(' ', ', ');
-    const msg = `
-নতুন অর্ডার!
-অর্ডার নম: ${orderId}
-গ্রাহক: ${name}
-মোবাইল: ${phone}
-${email ? `ইমেইল: ${email}\n` : ''}ঠিকানা: ${address}
-এলাকা: ${areaText}
-পেমেন্ট: কার্ড (ID: ${cardId})
-নতুন ব্যালেন্স: ${card.balance}tk
-অর্ডার আইটেম:
-${cart.map(i => `• ${i.title} × ${i.quantity} = ৳${i.price * i.quantity}`).join('\n')}মূল্য বিবরণ:
-পণ্য মূল্য: ৳${subtotal}
-ডেলিভারি: ৳${shipping}
-মোট: ৳${total}
-অর্ডার সময়: ${orderTime}
-    `.trim();
+    // === Render Products ===
+    function renderProducts(filtered = books) {
+      productsGrid.innerHTML = '';
+      if (filtered.length === 0) {
+        productsGrid.innerHTML = '<p style="grid-column:1/-1;text-align:center;color:var(--gray);padding:40px;">কোনো বই পাওয়া যায়নি</p>';
+        return;
+      }
+      filtered.forEach(book => {
+        const div = document.createElement('div');
+        div.className = 'product-card';
+        div.innerHTML = `
+          <div class="product-img">
+            <img src="${book.img}" alt="${book.title}" onerror="this.src='https://via.placeholder.com/300x400?text=বই'" />
+          </div>
+          <div class="product-info">
+            <h3>${book.title}</h3>
+            <div class="rating">
+              ${'★'.repeat(Math.floor(book.rating))}${'☆'.repeat(5 - Math.floor(book.rating))} <span>${book.rating}</span>
+            </div>
+            <p class="price">৳${book.price}</p>
+            <div class="quantity">
+              <button onclick="changeQty(${book.id}, -1)">−</button>
+              <span id="qty-${book.id}">0</span>
+              <button onclick="changeQty(${book.id}, 1)">+</button>
+            </div>
+            <button class="add-to-cart" onclick="addToCart(${book.id})">কার্টে যোগ করুন</button>
+          </div>
+        `;
+        productsGrid.appendChild(div);
+      });
+    }
 
-    const sent = await sendToTelegram(msg);
+    window.changeQty = (id, change) => {
+      const qtyEl = document.getElementById(`qty-${id}`);
+      let qty = parseInt(qtyEl.textContent) || 0;
+      qty = Math.max(0, qty + change);
+      qtyEl.textContent = qty;
+    };
 
-    // সফলতা
-    checkoutModal.classList.remove('open');
-    confirmationModal.classList.add('open');
-    finalOrderId.textContent = `#${orderId}`;
-    cart = [];
-    updateCart();
-    e.target.reset();
-    resetSubmitBtn(submitBtn);
+    window.addToCart = (id) => {
+      const qty = parseInt(document.getElementById(`qty-${id}`).textContent);
+      if (qty === 0) return showToast('পরিমাণ নির্বাচন করুন!', 'error');
 
-    showToast(sent ? 'অর্ডার সফল! টেলিগ্রামে পাঠানো হয়েছে।' : 'অর্ডার সফল, কিন্তু টেলিগ্রামে পাঠানো যায়নি!', sent ? 'success' : 'error');
-  };
+      const existing = cart.find(item => item.id === id);
+      if (existing) existing.quantity += qty;
+      else {
+        const book = books.find(b => b.id === id);
+        cart.push({ ...book, quantity: qty });
+      }
 
-  function resetSubmitBtn(btn) {
-    btn.disabled = false;
-    document.getElementById('order-text').textContent = 'অর্ডার কনফার্ম করুন';
-    document.getElementById('order-loader').style.display = 'none';
-  }
+      document.getElementById(`qty-${id}`).textContent = 0;
+      updateCart();
+      showToast('কার্টে যোগ হয়েছে!');
+    };
 
-  // === Initialize ===
-  renderProducts();
-  updateCart();
-  priceValue.textContent = priceRange.value;
+    function updateCart() {
+      cartCount.textContent = cart.reduce((sum, item) => sum + item.quantity, 0);
+      renderCartItems();
+      calculateTotal();
+    }
+
+    function renderCartItems() {
+      if (cart.length === 0) {
+        cartBody.innerHTML = '<p style="text-align:center;color:var(--gray);padding:40px 20px;">কার্ট খালি</p>';
+        return;
+      }
+      cartBody.innerHTML = '';
+      cart.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'cart-item';
+        div.innerHTML = `
+          <img src="${item.img}" alt="${item.title}">
+          <div class="cart-item-info">
+            <h4>${item.title}</h4>
+            <p>৳${item.price} × ${item.quantity} = ৳${item.price * item.quantity}</p>
+          </div>
+          <button class="remove-item" onclick="removeFromCart(${item.id})">×</button>
+        `;
+        cartBody.appendChild(div);
+      });
+    }
+
+    window.removeFromCart = (id) => {
+      cart = cart.filter(item => item.id !== id);
+      updateCart();
+    };
+
+    function calculateTotal() {
+      const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+      cartTotal.textContent = total;
+    }
+
+    // === Filters ===
+    function applyFilters() {
+      const category = categoryFilter.value;
+      const maxPrice = parseInt(priceRange.value);
+      const query = searchInput.value.toLowerCase().trim();
+
+      const filtered = books.filter(book => {
+        const matchCategory = !category || book.category === category;
+        const matchPrice = book.price <= maxPrice;
+        const matchSearch = !query || book.title.toLowerCase().includes(query);
+        return matchCategory && matchPrice && matchSearch;
+      });
+      renderProducts(filtered);
+    }
+
+    categoryFilter.addEventListener('change', applyFilters);
+    priceRange.addEventListener('input', () => {
+      priceValue.textContent = priceRange.value;
+      applyFilters();
+    });
+    searchInput.addEventListener('input', applyFilters);
+
+    // === Cart Events ===
+    cartToggle.onclick = () => cartSidebar.classList.add('open');
+    closeCart.onclick = () => cartSidebar.classList.remove('open');
+
+    proceedCheckout.onclick = () => {
+      if (cart.length === 0) return showToast('কার্ট খালি!', 'error');
+      if (!currentUser) return showToast('প্রথমে রেজিস্ট্রেশন করুন!', 'error');
+
+      document.getElementById('checkout-name').value = currentUser.name;
+      document.getElementById('checkout-phone').value = currentUser.phone;
+
+      cartSidebar.classList.remove('open');
+      checkoutModal.classList.add('open');
+      updateSummary();
+    };
+
+    document.querySelectorAll('.close-modal').forEach(btn => {
+      btn.onclick = () => {
+        checkoutModal.classList.remove('open');
+        confirmationModal.classList.remove('open');
+        cardCheckModal.classList.remove('open');
+        orderListModal.classList.remove('open');
+        userRegisterModal.classList.remove('open');
+      };
+    });
+
+    function updateSummary() {
+      const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      const area = areaSelect.value;
+      const shipping = area === 'dhaka' ? 50 : area === 'outside' ? 100 : 0;
+
+      summarySubtotal.textContent = subtotal;
+      summaryShipping.textContent = shipping;
+      summaryTotal.textContent = subtotal + shipping;
+    }
+
+    areaSelect.addEventListener('change', updateSummary);
+
+    // === Card Check ===
+    cardCheckLink.onclick = () => cardCheckModal.classList.add('open');
+    closeCardModal.onclick = () => cardCheckModal.classList.remove('open');
+
+    cardCheckForm.onsubmit = async (e) => {
+      e.preventDefault();
+      const id = modalCardId.value.trim();
+      const pass = modalCardPassword.value;
+
+      try {
+        const res = await fetch(`${API_BASE}/card/check`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, password: pass }),
+          credentials: 'include'
+        });
+        const data = await res.json();
+        if (res.ok) {
+          modalBalanceResult.className = 'balance-result success';
+          modalBalanceResult.innerHTML = `
+            <p><strong>নাম:</strong> ${data.name}</p>
+            <p style="font-size:1.3rem;margin-top:8px;"><strong>ব্যালেন্স:</strong> ৳${data.balance}</p>
+          `;
+          showToast('ব্যালেন্স চেক সফল!', 'success');
+        } else {
+          modalBalanceResult.className = 'balance-result error';
+          modalBalanceResult.innerHTML = `<p>${data.message}</p>`;
+          showToast(data.message, 'error');
+        }
+        modalBalanceResult.style.display = 'block';
+      } catch (err) {
+        showToast('ইন্টারনেট সমস্যা!', 'error');
+      }
+    };
+
+    // === Telegram Test ===
+    testTelegramBtn.onclick = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/test-telegram`, { credentials: 'include' });
+        const data = await res.json();
+        showToast(data.message, data.success ? 'success' : 'error');
+      } catch (err) {
+        showToast('ইন্টারনেট সমস্যা!', 'error');
+      }
+    };
+
+    // === Order List ===
+    orderListLink.onclick = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/orders/user`, { credentials: 'include' });
+        const orders = await res.json();
+        renderOrders(orders);
+        orderListModal.classList.add('open');
+      } catch (err) {
+        showToast('অর্ডার লোড করতে সমস্যা!', 'error');
+      }
+    };
+
+    function renderOrders(orders) {
+      if (!orders || orders.length === 0) {
+        orderListBody.innerHTML = '<p style="text-align:center;color:var(--gray);padding:20px;">কোনো অর্ডার নেই</p>';
+        return;
+      }
+      orderListBody.innerHTML = '';
+      orders.forEach(order => {
+        const status = order.status || 'pending';
+        const isDelivered = status === 'delivered';
+        const isCancelled = status === 'cancelled';
+
+        const div = document.createElement('div');
+        div.className = `order-item ${isDelivered ? 'delivered' : isCancelled ? 'cancelled' : 'pending'}`;
+        div.innerHTML = `
+          <h3 style="color:${isDelivered ? '#059669' : isCancelled ? '#dc2626' : 'var(--primary)'}">
+            অর্ডার #${order.orderId} ${isDelivered ? 'Delivered' : isCancelled ? 'Cancelled' : ''}
+          </h3>
+          <p>তারিখ: ${new Date(order.createdAt).toLocaleString('bn-BD')}</p>
+          <p>মোট: ৳${order.total}</p>
+          ${isDelivered ? '<p style="color:#059669; font-weight:600; margin-top:8px;">ডেলিভারি সফল হয়েছে</p>' : ''}
+          ${isCancelled ? '<p style="color:#dc2626; font-weight:600; margin-top:8px;">অর্ডার ক্যানসেল হয়েছে</p>' : ''}
+          <ul>${order.items.map(i => `<li>${i.title} × ${i.quantity} = ৳${i.price * i.quantity}</li>`).join('')}</ul>
+        `;
+        orderListBody.appendChild(div);
+      });
+    }
+
+    // === Checkout Submit ===
+    checkoutForm.onsubmit = async (e) => {
+      e.preventDefault();
+      if (cart.length === 0) return showToast('কার্ট খালি!', 'error');
+
+      const submitBtn = e.target.querySelector('.submit-order');
+      submitBtn.disabled = true;
+      document.getElementById('order-text').textContent = 'প্রসেসিং হচ্ছে...';
+      document.getElementById('order-loader').style.display = 'inline-block';
+
+      const payload = {
+        name: document.getElementById('checkout-name').value.trim(),
+        phone: document.getElementById('checkout-phone').value.trim(),
+        email: e.target.querySelector('input[type="email"]').value.trim(),
+        address: e.target.querySelector('textarea').value.trim(),
+        area: areaSelect.value,
+        cardId: checkoutCardId.value.trim(),
+        cardPassword: checkoutCardPassword.value,
+        items: cart,
+        subtotal: cart.reduce((s, i) => s + i.price * i.quantity, 0),
+        shipping: areaSelect.value === 'dhaka' ? 50 : 100
+      };
+
+      try {
+        const res = await fetch(`${API_BASE}/orders`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          credentials: 'include'
+        });
+        const data = await res.json();
+        if (res.ok) {
+          checkoutModal.classList.remove('open');
+          confirmationModal.classList.add('open');
+          finalOrderId.textContent = `#${data.orderId}`;
+          cart = [];
+          updateCart();
+          showToast('অর্ডার সফল! টেলিগ্রামে পাঠানো হয়েছে।');
+        } else {
+          showToast(data.message || 'অর্ডার ব্যর্থ!', 'error');
+        }
+      } catch (err) {
+        showToast('ইন্টারনেট সমস্যা!', 'error');
+      } finally {
+        submitBtn.disabled = false;
+        document.getElementById('order-text').textContent = 'অর্ডার কনফার্ম করুন';
+        document.getElementById('order-loader').style.display = 'none';
+      }
+    };
+
+    // === Mobile Menu ===
+    mobileMenuToggle.addEventListener('click', () => navLinks.classList.toggle('mobile-open'));
+    document.addEventListener('click', (e) => {
+      if (!navLinks.contains(e.target) && !mobileMenuToggle.contains(e.target)) {
+        navLinks.classList.remove('mobile-open');
+      }
+    });
+
+    // === Initialize ===
+    loadBooks();
+    loadUser();
+    priceValue.textContent = priceRange.value;
   </script>
 </body>
 </html>
